@@ -4,6 +4,7 @@ pub const MyAllocator = struct {
     allocator: std.mem.Allocator = std.heap.page_allocator,
     free_blocks: ?*Block = null,
     allocated_chunks: std.ArrayList([]u8) = .empty,
+
     pub fn get_allocator(self: *MyAllocator) std.mem.Allocator {
         return .{ .ptr = self, .vtable = &.{
             .alloc = alloc,
@@ -12,19 +13,23 @@ pub const MyAllocator = struct {
             .free = free,
         } };
     }
+
     const Block = struct {
         next: ?*Block,
         sz: usize,
     };
+
     fn init(allocator: std.mem.Allocator) MyAllocator {
         return .{ .allocator = allocator };
     }
+
     fn deinit(self: *MyAllocator) void {
         for (self.allocated_chunks.items) |chunk| {
             self.allocator.free(chunk);
         }
         self.allocated_chunks.deinit(self.allocator);
     }
+
     fn alloc(ctx: *anyopaque, len: usize, alignment: std.mem.Alignment, _: usize) ?[*]u8 {
         const self: *MyAllocator = @ptrCast(@alignCast(ctx));
         var cur = self.free_blocks;
@@ -62,6 +67,7 @@ pub const MyAllocator = struct {
         self.free_blocks = new_block;
         return alloc(ctx, len, alignment, 0);
     }
+
     fn free(ctx: *anyopaque, memory: []u8, alignment: std.mem.Alignment, _: usize) void {
         const self: *MyAllocator = @ptrCast(@alignCast(ctx));
         const block_info_sz = std.mem.alignForward(usize, @sizeOf(Block), alignment.toByteUnits());
@@ -72,13 +78,16 @@ pub const MyAllocator = struct {
         self.free_blocks = block;
         std.debug.print("Block started at .{*} was freed\n", .{memory.ptr});
     }
+
     fn resize(_: *anyopaque, _: []u8, _: std.mem.Alignment, _: usize, _: usize) bool {
         return false;
     }
+
     fn remap(_: *anyopaque, _: []u8, _: std.mem.Alignment, _: usize, _: usize) ?[*]u8 {
         return null;
     }
 };
+
 pub fn main(_: std.process.Init) !void {
     var alloc = MyAllocator.init(std.heap.page_allocator);
     defer alloc.deinit();
