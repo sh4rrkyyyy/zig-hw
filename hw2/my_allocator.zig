@@ -59,7 +59,9 @@ pub const MyAllocator = struct {
             prev = cur;
             cur = node.next;
         }
-        const chunk = self.allocator.alloc(u8, @max(4096 * 4, total_sz)) catch return null;
+        const page_sz = std.heap.page_size_min;
+        const chunk_sz = std.mem.alignForward(usize, @max(4096 * 4, total_sz), page_sz);
+        const chunk = self.allocator.alloc(u8, chunk_sz) catch return null;
         self.allocated_chunks.append(self.allocator, chunk) catch return null;
         std.debug.print("Page allocator returns new block with address {*}\n", .{chunk.ptr});
         const new_block: *Block = @ptrCast(@alignCast(chunk.ptr));
