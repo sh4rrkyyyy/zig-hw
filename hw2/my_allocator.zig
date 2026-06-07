@@ -19,19 +19,19 @@ pub const MyAllocator = struct {
         sz: usize,
     };
 
-    fn init(allocator: std.mem.Allocator) MyAllocator {
+    pub fn init(allocator: std.mem.Allocator) MyAllocator {
         return .{ .allocator = allocator };
     }
 
-    fn deinit(self: *MyAllocator) void {
+    pub fn deinit(self: *MyAllocator) void {
         for (self.allocated_chunks.items) |chunk| {
             self.allocator.free(chunk);
-            std.debug.print("Chunk at {*}\n was freed\n", .{chunk.ptr});
+            std.debug.print("Chunk at {*} was freed\n", .{chunk.ptr});
         }
         self.allocated_chunks.deinit(self.allocator);
     }
 
-    fn alloc(ctx: *anyopaque, len: usize, alignment: std.mem.Alignment, _: usize) ?[*]u8 {
+    pub fn alloc(ctx: *anyopaque, len: usize, alignment: std.mem.Alignment, _: usize) ?[*]u8 {
         const self: *MyAllocator = @ptrCast(@alignCast(ctx));
         var cur = self.free_blocks;
         const block_info_sz = std.mem.alignForward(usize, @sizeOf(Block), alignment.toByteUnits());
@@ -69,7 +69,7 @@ pub const MyAllocator = struct {
         return alloc(ctx, len, alignment, 0);
     }
 
-    fn free(ctx: *anyopaque, memory: []u8, alignment: std.mem.Alignment, _: usize) void {
+    pub fn free(ctx: *anyopaque, memory: []u8, alignment: std.mem.Alignment, _: usize) void {
         const self: *MyAllocator = @ptrCast(@alignCast(ctx));
         const block_info_sz = std.mem.alignForward(usize, @sizeOf(Block), alignment.toByteUnits());
         const total_sz = std.mem.alignForward(usize, memory.len + block_info_sz, @alignOf(Block));
@@ -88,15 +88,3 @@ pub const MyAllocator = struct {
         return null;
     }
 };
-
-pub fn main(_: std.process.Init) !void {
-    var alloc = MyAllocator.init(std.heap.page_allocator);
-    defer alloc.deinit();
-    const allocator = alloc.get_allocator();
-    const mem = try allocator.alloc(u8, 4096 * 3);
-    const mem1 = try allocator.alloc(u8, 4096);
-    const mem2 = try allocator.alloc(u8, 4096 * 4 - 16);
-    defer allocator.free(mem2);
-    defer allocator.free(mem1);
-    defer allocator.free(mem);
-}

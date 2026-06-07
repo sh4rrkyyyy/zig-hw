@@ -1,8 +1,8 @@
 const std = @import("std");
+const my_alloc = @import("my_allocator.zig");
 const fmt = std.fmt;
 const fs = std.fs;
 const print = std.debug.print;
-const ArenaAllocator = std.heap.ArenaAllocator;
 
 const Binop = enum { PLUS, MINUS };
 const Unop = enum { SQRT };
@@ -78,43 +78,42 @@ const ContextNode = struct {
     }
 };
 
-pub fn build(it: anytype, alloc: *ArenaAllocator) !Node {
+pub fn build(it: anytype, alloc: std.mem.Allocator) !Node {
     const tok = it.next() orelse return error.UnexpectedEnd;
     if (std.mem.eql(u8, tok, "sqrt")) {
         const child = try build(it, alloc);
-        const node = try alloc.allocator().create(UnopNode);
+        const node = try alloc.create(UnopNode);
         node.* = UnopNode{ .child = child, .op = Unop.SQRT };
         return Node{ .ptr = node, .vtable = &UnopNode.vtable };
     }
     if (std.mem.eql(u8, tok, "+")) {
         const left = try build(it, alloc);
         const right = try build(it, alloc);
-        const node = try alloc.allocator().create(BinopNode);
+        const node = try alloc.create(BinopNode);
         node.* = BinopNode{ .left = left, .right = right, .op = Binop.PLUS };
         return Node{ .ptr = node, .vtable = &BinopNode.vtable };
     }
     if (std.mem.eql(u8, tok, "-")) {
         const left = try build(it, alloc);
         const right = try build(it, alloc);
-        const node = try alloc.allocator().create(BinopNode);
+        const node = try alloc.create(BinopNode);
         node.* = BinopNode{ .left = left, .right = right, .op = Binop.MINUS };
         return Node{ .ptr = node, .vtable = &BinopNode.vtable };
     }
     if (std.mem.eql(u8, tok, "x")) {
-        const node = try alloc.allocator().create(ContextNode);
+        const node = try alloc.create(ContextNode);
         node.* = ContextNode{};
         return Node{ .ptr = node, .vtable = &ContextNode.vtable };
     }
 
     const val = try fmt.parseFloat(f32, tok);
-    const node = try alloc.allocator().create(NumberNode);
+    const node = try alloc.create(NumberNode);
     node.* = NumberNode{ .value = val };
     return Node{ .ptr = node, .vtable = &NumberNode.vtable };
 }
 
 pub fn main(init: std.process.Init) !void {
     const io = init.io;
-    var arena = init.arena;
 
     const file = try std.Io.Dir.cwd().openFile(io, "in.txt", .{});
     defer file.close(io);
@@ -126,9 +125,13 @@ pub fn main(init: std.process.Init) !void {
 
     var it = std.mem.tokenizeAny(u8, line, " \t\r\n");
 
-    const root = try build(&it, arena);
+    var alloc = my_alloc.MyAllocator.init(std.heap.page_allocator);
+    defer alloc.deinit();
+    const allocator = alloc.get_allocator();
 
-    const args = try init.minimal.args.toSlice(arena.allocator());
+    const root = try build(&it, allocator);
+
+    const args = try init.minimal.args.toSlice(allocator);
     const x_str = if (args.len > 1) args[1] else "0";
     const x = try fmt.parseFloat(f32, x_str);
     const ctx = Context{ .x = x };
