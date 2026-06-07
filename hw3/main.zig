@@ -26,7 +26,7 @@ pub const MyAllocator = struct {
     fn deinit(self: *MyAllocator) void {
         for (self.allocated_chunks.items) |chunk| {
             self.allocator.free(chunk);
-            std.debug.print("Chunk at {*}\n was freed\n", .{chunk.ptr});
+            std.debug.print("Chunk at {*} was freed\n", .{chunk.ptr});
         }
         self.allocated_chunks.deinit(self.allocator);
     }
@@ -59,7 +59,7 @@ pub const MyAllocator = struct {
             prev = cur;
             cur = node.next;
         }
-        const chunk = self.allocator.alloc(u8, 4096 * 4) catch return null;
+        const chunk = self.allocator.alloc(u8, @max(4096 * 4, total_sz)) catch return null;
         self.allocated_chunks.append(self.allocator, chunk) catch return null;
         std.debug.print("Page allocator returns new block with address {*}\n", .{chunk.ptr});
         const new_block: *Block = @ptrCast(@alignCast(chunk.ptr));
@@ -95,7 +95,7 @@ pub fn main(_: std.process.Init) !void {
     const allocator = alloc.get_allocator();
     const mem = try allocator.alloc(u8, 4096 * 3);
     const mem1 = try allocator.alloc(u8, 4096);
-    const mem2 = try allocator.alloc(u8, 4096 * 4 - 16);
+    const mem2 = try allocator.alloc(u8, 4096 * 4 - 15);
     defer allocator.free(mem2);
     defer allocator.free(mem1);
     defer allocator.free(mem);

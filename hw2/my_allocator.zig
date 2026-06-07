@@ -59,7 +59,7 @@ pub const MyAllocator = struct {
             prev = cur;
             cur = node.next;
         }
-        const chunk = self.allocator.alloc(u8, 4096 * 4) catch return null;
+        const chunk = self.allocator.alloc(u8, @max(4096 * 4, total_sz)) catch return null;
         self.allocated_chunks.append(self.allocator, chunk) catch return null;
         std.debug.print("Page allocator returns new block with address {*}\n", .{chunk.ptr});
         const new_block: *Block = @ptrCast(@alignCast(chunk.ptr));
